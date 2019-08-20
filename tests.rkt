@@ -14,24 +14,16 @@
     #:argv (list "1" "2")
     #:arguments
     x
-    [y simple-argument])
+    y)
   (check-equal? x "1")
   (check-equal? y "2"))
 
 ; checked arguments
-(define (int-range/p min max)
-  (lambda (s)
-    (let ([n (string->number s)])
-      (unless (and (integer? n) (>= n min) (<= n max))
-        (raise-user-error (format "expected integer between ~a and ~a"
-                                  min max)))
-      n)))
-
 (let ()
   (define/command-line-options
     #:argv (list "1")
     #:arguments
-    [x (checked-argument (int-range/p 0 100))])
+    [x (int-range/p 0 100)])
   (check-equal? x 1))
 
 ; checked rest arguments
@@ -39,9 +31,9 @@
   (define/command-line-options
     #:argv (list "1" "2" "3")
     #:arguments
-    [initial-value (checked-argument (int-range/p 0 100))]
+    [initial-value (int-range/p 0 100)]
     #:rest
-    [adds (checked-argument (int-range/p 0 100))])
+    [adds (int-range/p 0 100)])
   (check-equal? initial-value 1)
   (check-equal? adds '(2 3)))
 
@@ -74,8 +66,8 @@
 
 ; multi, checked arguments
 (test-option
- (multi '() ["--c" [x (checked-argument (int-range/p 0 100))]
-                   [y (checked-argument (int-range/p 0 100))]
+ (multi '() ["--c" [x (int-range/p 0 100)]
+                   [y (int-range/p 0 100)]
                    "add coordinate (<x>, <y>)"
                    (lambda (acc) (append acc (list (cons x y))))])
  ['() '()]
@@ -104,7 +96,7 @@
 
 (test-option
  (choice #:default 0
-         ["--optimize-level" [lvl (int-range/argt 0 3)]
+         ["--optimize-level" [lvl (int-range/p 0 3)]
                              "set optimization level to <lvl>" lvl]
          (numbered-flags/f "--o" [0 3] "optimization level"))
  ['() 0] ['("--optimize-level" "1") 1]
@@ -112,7 +104,7 @@
 
 ; argument type syntaxes
 (test-option
- (choice #:required ["--coord" [x (int-range/argt 0 100)] [y (int-range/argt 0 100)]
+ (choice #:required ["--coord" [x (int-range/p 0 100)] [y (int-range/p 0 100)]
                                "set coordinate" (cons x y)])
  ['("--coord" "0" "1") '(0 . 1)])
 
@@ -130,7 +122,7 @@
      #:program "foo"
      #:argv (list "bar")
      #:arguments
-     [x (checked-argument (int-range/p 0 100))])
+     [x (int-range/p 0 100)])
    x))
 
 (check-exn
@@ -140,7 +132,7 @@
      #:program "foo"
      #:argv (list "bar")
      #:rest
-     [xs (checked-argument (int-range/p 0 100))])
+     [xs (int-range/p 0 100)])
    xs))
 
 (check-exn
@@ -151,5 +143,5 @@
      #:argv (list "--flag" "bar")
      #:options
      [x (choice #:required
-                ["--flag" [x (checked-argument (int-range/p 0 100))] "set x" x])])
+                ["--flag" [x (int-range/p 0 100)] "set x" x])])
    x))

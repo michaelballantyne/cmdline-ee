@@ -16,26 +16,23 @@
 
 (provide define/command-line-options
          choice multi
-         simple-argument checked-argument
+         optional/o
+         required/o
          
          define-option-syntax
          define-flag-syntax
-         define-argtype-syntax
          (for-syntax flag-name flag-names)
 
          switch/o list/o
-         int-range/argt)
+         int-range/p)
 
 (define-literal-forms cmdline-literals
   "command line option, flag, and argument specifiers cannot be used as expressions"
   (choice
-   multi
-   simple-argument
-   checked-argument))
+   multi))
 
 (define-extensible-syntax option-syntax)
 (define-extensible-syntax flag-syntax)
-(define-extensible-syntax argtype-syntax)
 
 ; Expander
 (begin-for-syntax
@@ -62,10 +59,10 @@
              #:attr names #'(s ...)))
   
   (define-syntax-class arg-spec
-    #:attributes [name type]
+    #:attributes [name parser]
     (pattern name:id
-             #:attr type #'simple-argument)
-    (pattern [name:id type]))
+             #:attr parser #'identity/p)
+    (pattern [name:id parser]))
   
   (define/hygienic-metafunction (expand-option stx) #:definition
     (syntax-parse stx
@@ -85,20 +82,9 @@
       [(begin f ...)
        (qstx/rc ((~@ . (expand-flag f)) ...))]
       [[names:flag-names arg:arg-spec ... desc:string e]
-       (qstx/rc ([names.names [arg.name (expand-argument-type arg.type)] ... desc e]))]
+       (qstx/rc ([names.names [arg.name arg.parser] ... desc e]))]
       [(head:id . rest)
        #`(expand-flag #,(flag-syntax-transform (lookup #'head) this-syntax))]))
-
-  (define/hygienic-metafunction (expand-argument-type stx) #:definition
-    (syntax-parse stx
-      #:literal-sets (cmdline-literals)
-      [simple-argument this-syntax]
-      [(checked-argument parser) this-syntax]
-      [(head:id . rest)
-       #:when (argtype-syntax? (lookup #'head))
-       #`(expand-argument-type #,(argtype-syntax-transform (lookup #'head) this-syntax))]
-      [_ (raise-syntax-error 'define/command-line-options
-                             "invalid argument type syntax" this-syntax)]))
    
   (define/hygienic (expand-define/command-line-options stx) #:definition
     (syntax-parse stx
@@ -113,8 +99,8 @@
         (form-id (~? name-expr (find-system-path 'run-file))
                  (~? argv-expr (current-command-line-arguments))
                  ([option-name (expand-option opt-spec)] ...)
-                 ([arg.name (expand-argument-type arg.type)] ...)
-                 (~? [rest-arg.name (expand-argument-type rest-arg.type)] #f)))])))
+                 ([arg.name arg.parser] ...)
+                 (~? [rest-arg.name rest-arg.parser] #f)))])))
 
 ; runtime
 (define identity/p (lambda (x) x))
@@ -184,19 +170,12 @@
       [(multi init-expr . _)
        #'init-expr]))
 
-  (define (arg-type-parser-expr arg-type-stx)
-    (syntax-parse arg-type-stx
-      #:literal-sets (cmdline-literals)
-      [simple-argument #'identity/p]
-      [(checked-argument parser) #'parser]))
-
   (define-syntax-class exp-flag-spec
     (pattern [[name:string ...] ([arg:id arg-spec] ...) desc:string e]))
 
   (define ((compile-flag key type) flag-stx)
     (syntax-parse flag-stx
-      [[[name:string ...] [arg:id arg-spec] ... desc:string e]
-       (def/stx (arg-p ...) (stx-map arg-type-parser-expr #'(arg-spec ...)))
+      [[[name:string ...] [arg:id arg-p] ... desc:string e]
        (def/stx hash-op (case type [(choice) #'hash-set] [(multi) #'hash-update]))
        (def/stx (arg-name-str-e ...) (stx-map identifier->string-literal #'(arg ...)))
        (def/stx fn
@@ -218,7 +197,7 @@
   (define (compile-table-expr option-specs option-keys)
     #`(list #,@(map compile-option option-specs option-keys)))
 
-  (define (compile-finish-proc-expr option-specs option-keys arg-names arg-types maybe-rest-type)
+  (define (compile-finish-proc-expr option-specs option-keys arg-names arg-parsers maybe-rest-parser)
     (define required-option-keys+names
       (for/fold ([acc (hash)])
                 ([spec option-specs]
@@ -229,10 +208,8 @@
            (hash-set acc key (apply append (syntax->datum #'(flag.names ...))))]
           [_ acc])))
 
-    (define arg-parsers (map arg-type-parser-expr arg-types))
-
     (define maybe-parse-rest
-      (if maybe-rest-type (arg-type-parser-expr maybe-rest-type) #'#f))
+      (or maybe-rest-parser #'#f))
 
     (define arg-names-exprs
       (for/list ([arg arg-names])
@@ -295,9 +272,15 @@
     (unless (and (integer? n) (>= n min) (<= n max))
       (raise-user-error (format "expected integer between ~a and ~a" min max)))
     n))
-(define-argtype-syntax int-range/argt
+
+(define-option-syntax optional/o
   (syntax-parser
-    [(_ min:number max:number)
-     (def/stx desc (format "integer between ~a and ~a" (syntax-e #'min) (syntax-e #'max)))
-     #'(checked-argument (int-range/p min max))]))
+    [(_ #:default default-expr rest ...)
+     #'(choice #:default default-expr [rest ...])]))
+
+(define-option-syntax required/o
+  (syntax-parser
+    [(_ rest ...)
+     #'(choice #:required [rest ...])]))
+  
 
