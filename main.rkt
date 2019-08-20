@@ -130,7 +130,8 @@
 
      (for ([(key flags) required-option-keys])
        (when (eq? (hash-ref final-option-map key) unset)
-         (raise-user-error (format "one of these flags must be specified: ~a" flags))))
+         (raise-user-error
+          (format "~a: one of these flags must be specified: ~a" (current-program-name) flags))))
     
      (define options
        (for/list ([key option-keys])
