@@ -121,6 +121,14 @@
 (define unset
   (let () (struct unset ()) (unset)))
 
+; TODO: I'd like errors to also mention the argument and flag names, as appropriate
+(define current-program-name (make-parameter #f))
+(define (run-parser parser context arg)
+  (define (rewrite-message e)
+    (raise-user-error (format "~a: ~a\n  in ~a" (current-program-name) (exn-message e) context)))
+  (with-handlers ([exn:fail:user? rewrite-message])
+    (parser arg)))
+
 (define (make-finish-proc option-keys initial-option-values required-option-keys
                           arg-names arg-parsers maybe-parse-rest)
   (procedure-reduce-arity
@@ -144,12 +152,14 @@
 
      (define positionals
        (for/list ([arg positional-args]
+                  [name arg-names]
                   [parse arg-parsers])
-         (parse arg)))
+         (run-parser parse (format "positional argument <~a>" name) arg)))
 
      (define maybe-rest
        (if maybe-parse-rest
-           (list (map maybe-parse-rest rest-args))
+           (list (map (lambda (arg) (run-parser maybe-parse-rest "variadic arguments" arg))
+                      rest-args))
            '()))
 
      (apply values
@@ -188,9 +198,12 @@
       [[[name:string ...] [arg:id arg-spec] ... desc:string e]
        (def/stx (arg-p ...) (stx-map arg-type-parser-expr #'(arg-spec ...)))
        (def/stx hash-op (case type [(choice) #'hash-set] [(multi) #'hash-update]))
+       (def/stx (arg-name-str-e ...) (stx-map identifier->string-literal #'(arg ...)))
        (def/stx fn
-         #`(lambda (ignore arg ...)
-             (let ([arg (arg-p arg)] ...)
+         #`(lambda (flag-name arg ...)
+             (let ([arg (run-parser arg-p
+                                    (format "<~a> argument to flag ~a" arg-name-str-e flag-name)
+                                    arg)] ...)
                (lambda (acc) (hash-op acc '#,key e)))))
        #``[(name ...) ,fn (desc #,@(stx-map identifier->string-literal #'(arg ...)))]]))
   
@@ -255,12 +268,14 @@
      (def/stx arg-help-strs-expr
        (compile-arg-help (syntax->list #'(arg-name ...)) (attribute rest-name)))
      #`(define-values (option-name ... arg-name ... (~? rest-name))
-         (parse-command-line
-          name-expr
-          argv-expr
-          table-expr
-          finish-proc-expr 
-          arg-help-strs-expr))])) 
+         (let ([name name-expr])
+           (parameterize ([current-program-name name])
+             (parse-command-line
+              name
+              argv-expr
+              table-expr
+              finish-proc-expr 
+              arg-help-strs-expr))))])) 
 
 ; sugar
 (define-option-syntax switch/o

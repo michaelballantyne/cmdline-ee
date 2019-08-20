@@ -110,10 +110,48 @@
  ['() 0] ['("--optimize-level" "1") 1]
  ['("--o1") 1] ['("--o2") 2])
 
-
 ; argument type syntaxes
 (test-option
  (choice #:required ["--coord" [x (int-range/argt 0 100)] [y (int-range/argt 0 100)]
                                "set coordinate" (cons x y)])
  ['("--coord" "0" "1") '(0 . 1)])
+
+; argument errors
+(define ((correct-user-exn? msg) e)
+  (and (exn:fail:user? e)
+       (equal?
+        msg
+        (exn-message e))))
+
+(check-exn
+ (correct-user-exn? "foo: expected integer between 0 and 100\n  in positional argument <x>")
+ (lambda ()
+   (define/command-line-options
+     #:program "foo"
+     #:argv (list "bar")
+     #:arguments
+     [x (checked-argument "x coordinate" (int-range/p 0 100))])
+   x))
+
+(check-exn
+ (correct-user-exn? "foo: expected integer between 0 and 100\n  in variadic arguments")
+ (lambda ()
+   (define/command-line-options
+     #:program "foo"
+     #:argv (list "bar")
+     #:rest
+     [xs (checked-argument "x coordinate" (int-range/p 0 100))])
+   xs))
+
+(check-exn
+ (correct-user-exn? "foo: expected integer between 0 and 100\n  in <x> argument to flag --flag")
+ (lambda ()
+   (define/command-line-options
+     #:program "foo"
+     #:argv (list "--flag" "bar")
+     #:options
+     [x (choice #:required
+                ["--flag" [x (checked-argument "x coordinate" (int-range/p 0 100))] "set x" x])])
+   x))
+
 
