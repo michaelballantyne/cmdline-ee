@@ -17,9 +17,13 @@
 (provide define/command-line-options
          choice multi
          simple-argument checked-argument
+         
+         define-option-syntax
+         define-flag-syntax
+         define-argtype-syntax
+         (for-syntax flag-name flag-names)
 
          switch/o list/o
-         numbered-flags/f
          int-range/argt)
 
 (define-literal-forms cmdline-literals
@@ -35,11 +39,26 @@
 
 ; Expander
 (begin-for-syntax
+  (define-syntax-class flag-name
+    #:description #f
+    (pattern _:string
+             #:cut
+             #:fail-unless
+             (regexp-match? #rx"^([-+][^-+]$|(--|[+][+])[^-+])" (syntax-e this-syntax))
+             "bad flag string"
+             #:fail-when
+             (regexp-match? #rx"^[-+][0-9]$" (syntax-e this-syntax))
+             "number flag not allowed"
+             #:fail-when
+             (regexp-match? #rx"^(-h|--help)$" (syntax-e this-syntax))
+             "pre-defined flag not allowed"))
+  
   (define-syntax-class flag-names
+    #:description #f
     #:attributes [names]
-    (pattern s:string
+    (pattern s:flag-name
              #:attr names #'(s))
-    (pattern (s:string ...+)
+    (pattern (s:flag-name ...+)
              #:attr names #'(s ...)))
   
   (define-syntax-class arg-spec
@@ -76,7 +95,10 @@
       [simple-argument this-syntax]
       [(checked-argument desc:string parser) this-syntax]
       [(head:id . rest)
-       #`(expand-argument-type #,(argtype-syntax-transform (lookup #'head) this-syntax))]))
+       #:when (argtype-syntax? (lookup #'head))
+       #`(expand-argument-type #,(argtype-syntax-transform (lookup #'head) this-syntax))]
+      [_ (raise-syntax-error 'define/command-line-options
+                             "invalid argument type syntax" this-syntax)]))
    
   (define/hygienic (expand-define/command-line-options stx) #:definition
     (syntax-parse stx
@@ -223,8 +245,6 @@
         ([arg-name arg-type] ...)
         (~or* #f [rest-name rest-type]))
      
-     (displayln this-syntax)
-     
      (define option-keys (for/list ([o (in-syntax #'(option-name ...))]) (gensym (syntax-e o))))
      (def/stx table-expr (compile-table-expr (syntax->list #'(option-spec ...)) option-keys))
      (def/stx finish-proc-expr
@@ -253,16 +273,6 @@
     [(_ names:flag-names arg:arg-spec desc:string)
      #'(multi '()
               [names arg desc (lambda (acc) (append acc (list arg.name)))])]))
-
-(define-flag-syntax numbered-flags/f
-  (syntax-parser
-    [(_ flags:flag-names [min:number max:number] desc:string)
-     (def/stx (f ...)
-       (for/list ([n (in-range (syntax-e #'min) (syntax-e #'max))])
-         (def/stx names (for/list ([s (syntax->datum #'flags.names)]) (format "~a~a" s n)))
-         (def/stx this-desc (format "set ~a to ~a" (syntax-e #'desc) n))
-         #`[names this-desc #,n]))
-     #'(begin f ...)]))
 
 (define (int-range/p min max)
   (lambda (s)
