@@ -31,7 +31,7 @@
   (define/command-line-options
     #:argv (list "1")
     #:arguments
-    [x (checked-argument "x coordinate" (int-range/p 0 100))])
+    [x (checked-argument (int-range/p 0 100))])
   (check-equal? x 1))
 
 ; checked rest arguments
@@ -39,9 +39,9 @@
   (define/command-line-options
     #:argv (list "1" "2" "3")
     #:arguments
-    [initial-value (checked-argument "int" (int-range/p 0 100))]
+    [initial-value (checked-argument (int-range/p 0 100))]
     #:rest
-    [adds (checked-argument "int" (int-range/p 0 100))])
+    [adds (checked-argument (int-range/p 0 100))])
   (check-equal? initial-value 1)
   (check-equal? adds '(2 3)))
 
@@ -74,8 +74,8 @@
 
 ; multi, checked arguments
 (test-option
- (multi '() ["--c" [x (checked-argument "coordinate" (int-range/p 0 100))]
-                   [y (checked-argument "coordinate" (int-range/p 0 100))]
+ (multi '() ["--c" [x (checked-argument (int-range/p 0 100))]
+                   [y (checked-argument (int-range/p 0 100))]
                    "add coordinate (<x>, <y>)"
                    (lambda (acc) (append acc (list (cons x y))))])
  ['() '()]
@@ -130,7 +130,7 @@
      #:program "foo"
      #:argv (list "bar")
      #:arguments
-     [x (checked-argument "x coordinate" (int-range/p 0 100))])
+     [x (checked-argument (int-range/p 0 100))])
    x))
 
 (check-exn
@@ -140,7 +140,7 @@
      #:program "foo"
      #:argv (list "bar")
      #:rest
-     [xs (checked-argument "x coordinate" (int-range/p 0 100))])
+     [xs (checked-argument (int-range/p 0 100))])
    xs))
 
 (check-exn
@@ -151,7 +151,5 @@
      #:argv (list "--flag" "bar")
      #:options
      [x (choice #:required
-                ["--flag" [x (checked-argument "x coordinate" (int-range/p 0 100))] "set x" x])])
+                ["--flag" [x (checked-argument (int-range/p 0 100))] "set x" x])])
    x))
-
-

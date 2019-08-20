@@ -93,7 +93,7 @@
     (syntax-parse stx
       #:literal-sets (cmdline-literals)
       [simple-argument this-syntax]
-      [(checked-argument desc:string parser) this-syntax]
+      [(checked-argument parser) this-syntax]
       [(head:id . rest)
        #:when (argtype-syntax? (lookup #'head))
        #`(expand-argument-type #,(argtype-syntax-transform (lookup #'head) this-syntax))]
@@ -188,7 +188,7 @@
     (syntax-parse arg-type-stx
       #:literal-sets (cmdline-literals)
       [simple-argument #'identity/p]
-      [(checked-argument desc parser) #'parser]))
+      [(checked-argument parser) #'parser]))
 
   (define-syntax-class exp-flag-spec
     (pattern [[name:string ...] ([arg:id arg-spec] ...) desc:string e]))
@@ -299,5 +299,5 @@
   (syntax-parser
     [(_ min:number max:number)
      (def/stx desc (format "integer between ~a and ~a" (syntax-e #'min) (syntax-e #'max)))
-     #'(checked-argument desc (int-range/p min max))]))
+     #'(checked-argument (int-range/p min max))]))
 
