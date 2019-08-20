@@ -15,7 +15,7 @@
    ))
 
 (provide define/command-line-options
-         choice multi
+         (rename-out [choice choice/o] [multi multi/o])
          optional/o
          required/o
          

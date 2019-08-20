@@ -24,7 +24,7 @@
   [verbose-mode (switch/o ("-v" "--verbose") "Compile with verbose messages")]
   [profiling-on (switch/o ("-p" "--profile") "Compile with profiling")]
   [optimize-level
-   (choice #:default 0
+   (choice/o #:default 0
          ["--optimize-level" [lvl (int-range/p 0 3)]
                              "set optimization level to <lvl>" lvl]
          (numbered-flags/f "--o" [0 3] "optimization level"))]

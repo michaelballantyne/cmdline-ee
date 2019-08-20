@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "main.rkt")
+(require (rename-in "main.rkt" [choice/o choice] [multi/o multi]))
 
 (require rackunit
          (for-syntax
