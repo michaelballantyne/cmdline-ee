@@ -23,7 +23,7 @@
          define-flag-syntax
          (for-syntax flag-name flag-names)
 
-         switch/o list/o
+         switch/o list/o numbered-flags/f
          int-range/p)
 
 (define-literal-forms cmdline-literals
@@ -283,5 +283,15 @@
   (syntax-parser
     [(_ rest ...)
      #'(choice #:required [rest ...])]))
-  
+
+(define-flag-syntax numbered-flags/f
+  (syntax-parser
+    [(_ flags:flag-names [min:number max:number] desc:string)
+     (def/stx (f ...)
+       (for/list ([n (in-range (syntax-e #'min) (+ 1 (syntax-e #'max)))])
+         (def/stx names (for/list ([s (syntax->datum #'flags.names)]) (format "~a~a" s n)))
+         (def/stx this-desc (format "set ~a to ~a" (syntax-e #'desc) n))
+         #`[names this-desc #,n]))
+     #'(begin f ...)]))
+
 
