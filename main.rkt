@@ -74,7 +74,11 @@
       [(multi init-expr flag ...+)
        (qstx/rc (multi init-expr (~@ . (expand-flag flag)) ...))]
       [(head:id . rest)
-       #`(expand-option #,(option-syntax-transform (lookup #'head) this-syntax))]))
+       #:with transformed (apply-as-transformer (lambda (stx) (option-syntax-transform (lookup #'head) stx))
+                                                #'head
+                                                'expression
+                                                this-syntax)
+       #'(expand-option transformed)]))
 
   (define/hygienic-metafunction (expand-flag stx) #:definition
     (syntax-parse stx
@@ -84,7 +88,11 @@
       [[names:flag-names arg:arg-spec ... desc:string e]
        (qstx/rc ([names.names [arg.name arg.parser] ... desc e]))]
       [(head:id . rest)
-       #`(expand-flag #,(flag-syntax-transform (lookup #'head) this-syntax))]))
+       #:with transformed (apply-as-transformer (lambda (stx) (flag-syntax-transform (lookup #'head) stx))
+                                                #'head
+                                                'expression
+                                                this-syntax)
+       #'(expand-flag transformed)]))
    
   (define/hygienic (expand-define/command-line-options stx) #:definition
     (syntax-parse stx
